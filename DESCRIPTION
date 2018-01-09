@@ -1,0 +1,20 @@
+Package: PatchseqMap
+Type: Package
+Title: PatchseqMap
+Version: 0.99.0
+Date: 2018-8-01
+Author: Dr Nathan Skene
+Maintainer: Nathan Skene <nathan.skene@gmail.com>
+Description: Used to map patchseq transcriptomes onto celltype's identified through single cell transcrpiptomics.
+License: Artistic-2.0
+LazyData: TRUE
+Depends: R(>= 3.2)
+VignetteBuilder: knitr
+Imports:
+Suggests: knitr, BiocStyle
+biocViews: GeneExpression, Transcription, DifferentialExpression,
+        GeneSetEnrichment, Genetics, Microarray,
+        mRNAMicroarray, OneChannel, RNASeq,
+        BiomedicalInformatics, Proteomics, Visualization,
+        FunctionalGenomics
+RoxygenNote: 6.0.1

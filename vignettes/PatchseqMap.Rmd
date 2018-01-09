@@ -1,0 +1,68 @@
+---
+title: "Mapping Patchseq Data onto Celltypes using bootstrapping"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+# Using EWCE for mapping PatchSeq data onto known cell types
+
+# First, install EWCE from github to get access to the cortex_mrna dataset
+```{r }
+# install.packages("devtools")
+library(devtools)
+install_github("nathanskene/ewce")
+library(EWCE)
+library(PatchseqMap)
+```
+
+## Simulating PatchSeq data
+
+Patch-seq is a useful technique for obtaining both electrophysiology and mRNA from single cells. One of the primary purposes for collecting the mRNA is to be able to infer the underlying celltype. Generally fairly low amounts of mRNA are obtained. For demonstration purposes, let's generate some simulated patchseq data based on the cortex/hippocampus single cell transcriptome data. We assume that there are 3x fewer reads through patchseq, sampled from the scRNA-Seq data with a poisson distribution.
+
+```{r }
+# First reduce the cortex_mrna dataset to just interneurons
+data(cortex_mrna)
+int_annot = cortex_mrna$annot[cortex_mrna$annot$level1class=="interneurons",]
+int_exp = cortex_mrna$exp[,int_annot$cell_id]
+
+# Use the cortex_mrna dataset to simulate patchseq data
+downsample_expression <- function(x){
+    y = round(rpois(length(x),x/4))
+    return(y)
+}
+simulated_patchdata = apply(int_exp,2,downsample_expression)
+rownames(simulated_patchdata) = rownames(int_exp)
+simulated_patchdata = simulated_patchdata[apply(simulated_patchdata,1,sum)>0,]
+MedianReadsPerCell = median(apply(simulated_patchdata,2,sum))
+print(sprintf("Median reads per simulated cell: %s",MedianReadsPerCell))
+```
+
+## Prepare cell type specificity data 
+
+```{r  cache=FALSE}
+# Generate celltype data for just the cortex/hippocampus data
+exp_CortexOnly_DROPPED = drop.uninformative.genes(exp=cortex_mrna$exp,level2annot = cortex_mrna$annot$level2class)
+fNames_CortexOnly = generate.celltype.data(exp=exp_CortexOnly_DROPPED,level1class=cortex_mrna$annot$level1class,level2class=cortex_mrna$annot$level2class,groupName="kiCortexOnly",thresh=0,trim=0)
+print(fNames_CortexOnly)
+fNames_CortexOnly = filter.genes.without.1to1.homolog(fNames_CortexOnly)
+print(fNames_CortexOnly)
+load(fNames_CortexOnly[1])
+
+# Because the simulated patchseq data is just for interneurons, restrict the celltype specificity data to interneurons
+ctd[[2]]$specificity = ctd[[2]]$specificity[,grep("^Int",colnames(ctd[[2]]$specificity))]
+```
+
+
+## Mapping simulated PatchSeq data
+
+As ever, you should start by correcting the MGI symbols in your patchseq data:
+
+```{r }
+simulated_patchdata_corrected = fix.bad.mgi.symbols(simulated_patchdata)
+
+reps=100
+
+allRes = map.patchseq(ctd,simulated_patchdata_corrected[,1:20],sdThresh=1,annotLevel=2,useSDthresh=TRUE,reps=reps)
+
+print(data.frame(Actual=int_annot$level2class[1:20],Assigned=allRes$assigned))
+```
